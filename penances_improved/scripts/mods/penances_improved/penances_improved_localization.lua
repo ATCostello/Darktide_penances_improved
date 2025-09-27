@@ -16,6 +16,9 @@ mod:add_global_localize_strings(
 			en = "Change Operative", 
 			ru = "Смена оперативника", 
 			["zh-cn"] = "变更特工"
+		},
+		loc_PI_default = {
+			en = "Default"
 		}
     }
 )
