@@ -102,6 +102,51 @@ mod:hook_safe(CLASS.InventoryWeaponCosmeticsView, "cb_switch_tab", function(self
 	weapon_preview_loaded = true
 end)
 
+local InventoryWeaponCosmeticsView =
+	require("scripts/ui/views/inventory_weapon_cosmetics_view/inventory_weapon_cosmetics_view")
+local Definitions =
+	require("scripts/ui/views/inventory_weapon_cosmetics_view/inventory_weapon_cosmetics_view_definitions")
+
+InventoryWeaponCosmeticsView.on_enter = function (self)
+	InventoryWeaponCosmeticsView.super.on_enter(self)
+
+	self._render_settings.alpha_multiplier = 0
+	self._inventory_items = {}
+
+	self:_setup_forward_gui()
+
+	self._background_widget = self:_create_widget("background", Definitions.background_widget)
+
+	if not self._selected_item then
+		return
+	end
+
+	local grid_size = Definitions.grid_settings.grid_size
+
+	self._content_blueprints = require("scripts/ui/view_content_blueprints/item_blueprints")(grid_size)
+
+	self:_setup_input_legend()
+
+	if not self._on_enter_anim_id then
+		self._on_enter_anim_id = self:_start_animation("on_enter", self._widgets_by_name, self)
+	end
+
+	if self._parent then
+		self._world_spawner = self._parent:world_spawner()
+	end
+
+	if self._presentation_item then
+		self:_setup_weapon_preview()
+		self:_preview_item(self._presentation_item)
+	end
+
+	self:present_grid_layout({})
+	self:_register_button_callbacks()
+	self:_setup_menu_tabs()
+	self:_load_layout()
+	self:_register_event("event_force_refresh_inventory", "event_force_refresh_inventory")
+end
+
 CosmeticsInspectView._handle_back_pressed = function(self)
 	if Managers.ui:view_active("inventory_weapon_cosmetics_view") and weapon_preview_loaded then
 		Managers.ui:close_view("inventory_weapon_cosmetics_view")
@@ -1210,7 +1255,8 @@ PenanceOverviewView._add_category_to_penance_grid_layout = function(self, layout
 	local achievements = self._achievements_by_category[category_id]
 	local filter = self._penance_grid_filters and self._penance_grid_filters[self._current_filter_index].filter
 
-	achievements = achievements and (filter and table.filter_array(achievements, filter) or table.shallow_copy_array(achievements))
+	achievements = achievements
+		and (filter and table.filter_array(achievements, filter) or table.shallow_copy_array(achievements))
 
 	local achievement_count = achievements and #achievements or 0
 
@@ -1266,7 +1312,6 @@ PenanceOverviewView._add_category_to_penance_grid_layout = function(self, layout
 
 			return (a_def and b_def) and (a_def.index < b_def.index) or false
 		end)
-
 	elseif sort_mode == "recently_completed" then
 		local player = self:_player()
 		-- completed ones first (most recently completed first), then uncompleted ordered by favorite/index
@@ -1331,7 +1376,7 @@ end
 PenanceOverviewView._toggle_penance_sort_mode = function(self)
 	if not self._penance_sort_mode or self._penance_sort_mode == "default" then
 		self._penance_sort_mode = "recent"
-	--elseif self._penance_sort_mode == "recent" then
+		--elseif self._penance_sort_mode == "recent" then
 		--self._penance_sort_mode = "recently_completed"
 	else
 		self._penance_sort_mode = "default"
@@ -1341,8 +1386,7 @@ PenanceOverviewView._toggle_penance_sort_mode = function(self)
 	self:_select_category(index)
 end
 
-
-PenanceOverviewView._present_penance_grid_layout = function (self, layout, optional_display_name)
+PenanceOverviewView._present_penance_grid_layout = function(self, layout, optional_display_name)
 	local grid = self._penance_grid
 	local left_click_callback = callback(self, "_cb_on_penance_pressed")
 	local right_click_callback
@@ -1351,15 +1395,24 @@ PenanceOverviewView._present_penance_grid_layout = function (self, layout, optio
 		grid:select_first_index()
 	end
 
-
-
-	grid:present_grid_layout(layout, PenanceOverviewViewDefinitions.grid_blueprints, left_click_callback, right_click_callback, nil, nil, optional_on_present_callback)
+	grid:present_grid_layout(
+		layout,
+		PenanceOverviewViewDefinitions.grid_blueprints,
+		left_click_callback,
+		right_click_callback,
+		nil,
+		nil,
+		optional_on_present_callback
+	)
 	grid:set_handle_grid_navigation(true)
 end
 
 PenanceOverviewView._should_show_view_operative = function(self)
-	local achievement_definition = Managers.achievements:achievement_definition(self._selected_achievement_id)
+	local index, entry, achievement_id = self:_get_target()
+
+	local achievement_definition = Managers.achievements:achievement_definition(achievement_id)
 	local reward_item, item_group
+
 	if achievement_definition then
 		reward_item, item_group = AchievementUIHelper.get_reward_item(achievement_definition)
 	end
@@ -1377,7 +1430,9 @@ PenanceOverviewView._should_show_view_operative = function(self)
 end
 
 PenanceOverviewView._cb_view_on_operative = function(self)
-	local achievement_definition = Managers.achievements:achievement_definition(self._selected_achievement_id)
+	local index, entry, achievement_id = self:_get_target()
+
+	local achievement_definition = Managers.achievements:achievement_definition(achievement_id)
 	local reward_item, item_group
 	if achievement_definition then
 		reward_item, item_group = AchievementUIHelper.get_reward_item(achievement_definition)
@@ -1573,7 +1628,7 @@ local add_definitions = function(definitions)
 					and parent._enter_animation_complete
 			end,
 		},
-        {
+		{
 			alignment = "right_alignment",
 			display_name = "",
 			input_action = "hotkey_toggle_item_tooltip",
@@ -1581,11 +1636,11 @@ local add_definitions = function(definitions)
 			visibility_function = function(parent, id)
 				local display_name = parent._penance_sort_mode or "default"
 
-                if display_name == "default" then
-                    display_name = "loc_PI_default"
-                else
-                    display_name = "loc_PI_recently_completed"
-                end
+				if display_name == "default" then
+					display_name = "loc_PI_default"
+				else
+					display_name = "loc_PI_recently_completed"
+				end
 
 				parent._input_legend_element:set_display_name(id, display_name)
 
