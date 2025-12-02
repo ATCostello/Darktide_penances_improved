@@ -42,61 +42,6 @@ local ANIMATION_SLOTS_MAP = {
 	slot_animation_end_of_round = true,
 }
 
-if not cvi then
-	CosmeticsInspectView._spawn_profile = function(self, profile, initial_rotation, disable_rotation_input)
-		if profile then
-			if self._profile_spawner then
-				self._profile_spawner:destroy()
-
-				self._profile_spawner = nil
-			end
-
-			local world = self._world_spawner:world()
-			local camera = self._world_spawner:camera()
-			local unit_spawner = self._world_spawner:unit_spawner()
-
-			self._profile_spawner = UIProfileSpawner:new("CosmeticsInspectView", world, camera, unit_spawner)
-
-			if disable_rotation_input then
-				self._profile_spawner:disable_rotation_input()
-			end
-
-			local camera_position = ScriptCamera.position(camera)
-			local spawn_position = Unit.world_position(self._spawn_point_unit, 1)
-			local spawn_rotation = Unit.world_rotation(self._spawn_point_unit, 1)
-
-			if initial_rotation then
-				local character_initial_rotation = Quaternion.axis_angle(Vector3(0, 0, 1), initial_rotation)
-
-				spawn_rotation = Quaternion.multiply(character_initial_rotation, spawn_rotation)
-			end
-
-			camera_position.z = 0
-
-			self._profile_spawner:spawn_profile(profile, spawn_position, spawn_rotation)
-
-			self._spawned_profile = profile
-
-			local selected_slot = self._selected_slot
-			local selected_slot_name = selected_slot and selected_slot.name
-
-			if selected_slot_name == "slot_companion_gear_full" then
-				self._profile_spawner:toggle_character(false)
-			elseif ANIMATION_SLOTS_MAP[selected_slot_name] then
-				local companion_state_machine = self._context
-				local item = self._preview_item
-				local toggle_companion = item
-					and item.companion_state_machine ~= nil
-					and item.companion_state_machine ~= ""
-
-				self._profile_spawner:toggle_companion(toggle_companion)
-			else
-				self._profile_spawner:toggle_companion(false)
-			end
-		end
-	end
-end
-
 local weapon_preview_loaded = false
 mod:hook_safe(CLASS.InventoryWeaponCosmeticsView, "cb_switch_tab", function(self, element)
 	weapon_preview_loaded = true
