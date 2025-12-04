@@ -804,7 +804,7 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 
 	if stats and not can_claim then
 		local stats_layouts = {}
-		local allowed_stats_height = is_tooltip and math.huge or space_left - min_description_height
+		local allowed_stats_height = is_tooltip and math.huge or space_left - 10
 		local top_spacing = 10
 		local bottom_spacing = 10
 
