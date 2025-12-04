@@ -52,7 +52,7 @@ local InventoryWeaponCosmeticsView =
 local Definitions =
 	require("scripts/ui/views/inventory_weapon_cosmetics_view/inventory_weapon_cosmetics_view_definitions")
 
-InventoryWeaponCosmeticsView.on_enter = function (self)
+InventoryWeaponCosmeticsView.on_enter = function(self)
 	InventoryWeaponCosmeticsView.super.on_enter(self)
 
 	self._render_settings.alpha_multiplier = 0
@@ -715,13 +715,13 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 		height_used = height_used + blueprint[layout_blueprint_names.header].size[2]
 	end
 
-	if draw_progress_bar and not can_claim then
+	if (not is_tooltip) and draw_progress_bar and not can_claim then
 		if use_spacing then
 			layout[#layout + 1] = {
 				widget_type = layout_blueprint_names.dynamic_spacing,
 				size = {
 					grid_size[1],
-					10,
+					20,
 				},
 			}
 			height_used = height_used + 10
@@ -760,9 +760,16 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 
 	if description and not can_claim then
 		description_layout_entry = {
+			size = nil,
+			size_policy = "strict",
+			text = nil,
+			widget_type = nil,
 			widget_type = layout_blueprint_names.body,
 			text = description,
-			size = {},
+			size = {
+				grid_size[1],
+				20,
+			},
 		}
 		layout[#layout + 1] = description_layout_entry
 	end
@@ -936,10 +943,13 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 				local progress = 0
 				local goal = 1
 				local type = AchievementTypes[sub_achievement_definition.type]
+
 				if type and type.get_progress ~= nil then
 					progress, goal = type.get_progress(sub_achievement_definition, player)
 					if sub_achievement_is_complete then
-						value = goal .. "/" .. goal
+						value = progress .. "/" .. goal
+
+						--value = goal .. "/" .. goal
 					else
 						value = progress .. "/" .. goal
 					end
@@ -980,10 +990,14 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 							local progress = 0
 							local goal = 1
 							local type = AchievementTypes[sub_sub_achievement_definition.type]
+
 							if type and type.get_progress ~= nil then
 								progress, goal = type.get_progress(sub_sub_achievement_definition, player)
+
 								if sub_sub_achievement_is_complete then
-									value = goal .. "/" .. goal
+									value = progress .. "/" .. goal
+
+									--value = goal .. "/" .. goal
 								else
 									value = progress .. "/" .. goal
 								end
@@ -2454,4 +2468,17 @@ mod.on_all_mods_loaded = function()
 			end
 		end
 	end
+end
+
+-- New FS function now used by the view
+PenanceOverviewView._get_carousel_card_layout = function(self, achievement_id)
+	-- original override expects: (self, achievement_id, is_tooltip)
+	-- The new system does not pass "is_tooltip", so default to false.
+	return self:_get_achievement_card_layout(achievement_id, false)
+end
+
+PenanceOverviewView._get_tooltip_layout = function(self, achievement_id)
+	-- original override expects: (self, achievement_id, is_tooltip)
+	-- The new system does not pass "is_tooltip", so default to false.
+	return self:_get_achievement_card_layout(achievement_id, true)
 end

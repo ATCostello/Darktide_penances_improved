@@ -3,7 +3,7 @@ local mod = get_mod("penances_improved")
 mod:add_global_localize_strings(
     {
         loc_PI_recently_completed = {
-			en = "Recently Completed", 
+			en = "Sort: Recently Completed", 
 			ru = "Недавно выполненные", 
 			["zh-cn"] = "最近完成"
 		},
@@ -18,7 +18,7 @@ mod:add_global_localize_strings(
 			["zh-cn"] = "变更特工"
 		},
 		loc_PI_default = {
-			en = "Default"
+			en = "Sort: Default"
 		}
     }
 )
