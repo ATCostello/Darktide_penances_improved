@@ -624,11 +624,12 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 	local can_claim = not is_tooltip and self:_can_claim_achievement_by_id(achievement_id)
 	local is_complete = not can_claim and Managers.achievements:achievement_completed(player, achievement_id)
 	local is_favorite = AchievementUIHelper.is_favorite_achievement(achievement_id)
-	local achievement_score = achievement.score or 0
+	local achievement_score = achievement_definition.score or 0
 	local achievement_family_order = AchievementUIHelper.get_achievement_family_order(achievement)
 	local draw_progress_bar = self:_achievement_should_display_progress_bar(achievement_definition, is_complete)
 	local use_spacing = true
 	local blueprint = PenanceOverviewViewDefinitions.grid_blueprints
+	local blueprints = PenanceOverviewViewDefinitions.grid_blueprints
 	local layout = {}
 	local layout_blueprint_names_by_grid = PenanceOverviewViewSettings.blueprints_by_page
 	local layout_blueprint_names = is_tooltip and layout_blueprint_names_by_grid.tooltip
@@ -637,8 +638,12 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 	local grid_size = self:_get_scenegraph_size(scenegraph_id)
 	local height_used = 0
 
+	local small_spacing = 2
+	local large_spacing = 6
+
 	if can_claim then
 		layout[#layout + 1] = {
+			size = nil,
 			widget_type = "claim_overlay",
 			size = {
 				grid_size[1],
@@ -647,132 +652,131 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 		}
 	end
 
-	if not is_tooltip then
-		layout[#layout + 1] = {
-			widget_type = layout_blueprint_names.tracked,
-			achievement_id = achievement_id,
-			tracked = is_favorite,
-		}
-		layout[#layout + 1] = {
-			widget_type = layout_blueprint_names.completed,
-			achievement_id = achievement_id,
-			completed = is_complete,
-		}
-		layout[#layout + 1] = {
-			widget_type = layout_blueprint_names.category,
-			achievement = achievement,
-		}
-	else
-		layout[#layout + 1] = {
-			widget_type = layout_blueprint_names.dynamic_spacing,
-			size = {
-				grid_size[1],
-				20,
-			},
-		}
-	end
-
-	height_used = height_used + blueprint[layout_blueprint_names.tracked].size[2]
-
-	if use_spacing then
-		layout[#layout + 1] = {
-			widget_type = layout_blueprint_names.dynamic_spacing,
-			size = {
-				grid_size[1],
-				10,
-			},
-		}
-		height_used = height_used + 10
-	end
-
 	layout[#layout + 1] = {
-		widget_type = layout_blueprint_names.penance_icon,
-		texture = achievement.icon,
-		completed = is_complete,
-		can_claim = can_claim,
-		family_index = achievement_family_order,
+		achievement_id = nil,
+		tracked = nil,
+		widget_type = nil,
+		widget_type = layout_blueprint_names.tracked,
+		achievement_id = achievement_id,
+		tracked = is_favorite,
 	}
-	height_used = height_used + blueprint[layout_blueprint_names.penance_icon].size[2]
-
-	if use_spacing then
-		layout[#layout + 1] = {
-			widget_type = layout_blueprint_names.dynamic_spacing,
-			size = {
-				grid_size[1],
-				5,
-			},
-		}
-		height_used = height_used + 5
-	end
+	layout[#layout + 1] = {
+		achievement_id = nil,
+		completed = nil,
+		widget_type = nil,
+		widget_type = layout_blueprint_names.completed,
+		achievement_id = achievement_id,
+		completed = is_complete,
+	}
+	layout[#layout + 1] = {
+		achievement = nil,
+		widget_type = nil,
+		widget_type = layout_blueprint_names.category,
+		achievement = achievement_definition,
+	}
+	height_used = height_used + blueprints[layout_blueprint_names.tracked].size[2]
+	layout[#layout + 1] = {
+		size = nil,
+		widget_type = nil,
+		widget_type = layout_blueprint_names.dynamic_spacing,
+		size = {
+			grid_size[1],
+			large_spacing,
+		},
+	}
+	height_used = height_used
+		+ self:_add_image_to_grid_layout(
+			layout_blueprint_names,
+			blueprints,
+			achievement_definition,
+			true,
+			can_claim,
+			layout
+		)
+	layout[#layout + 1] = {
+		size = nil,
+		widget_type = nil,
+		widget_type = layout_blueprint_names.dynamic_spacing,
+		size = {
+			grid_size[1],
+			large_spacing,
+		},
+	}
+	height_used = height_used + 2 * large_spacing
 
 	local title = AchievementUIHelper.localized_title(achievement_definition)
 
-	if title then
+	layout[#layout + 1] = {
+		size_policy = "strict",
+		text = nil,
+		widget_type = nil,
+		widget_type = layout_blueprint_names.header,
+		text = title,
+	}
+	height_used = height_used + blueprints[layout_blueprint_names.header].size[2]
+
+	if can_claim then
 		layout[#layout + 1] = {
-			widget_type = layout_blueprint_names.header,
-			text = title,
-		}
-		height_used = height_used + blueprint[layout_blueprint_names.header].size[2]
-	end
-
-	if (not is_tooltip) and draw_progress_bar and not can_claim then
-		if use_spacing then
-			layout[#layout + 1] = {
-				widget_type = layout_blueprint_names.dynamic_spacing,
-				size = {
-					grid_size[1],
-					20,
-				},
-			}
-			height_used = height_used + 10
-		end
-
-		local bar_progress, progress, goal = self:_get_achievement_bar_progress(achievement_definition)
-		local progress_text = progress > 0
-				and TextUtilities.apply_color_to_text(
-					tostring(progress),
-					Color.ui_achievement_icon_completed(255, true)
-				)
-			or tostring(progress)
-
-		layout[#layout + 1] = {
-			widget_type = layout_blueprint_names.progress_bar,
-			text = progress_text .. "/" .. tostring(goal),
-			progress = bar_progress,
-		}
-		height_used = height_used + blueprint[layout_blueprint_names.progress_bar].size[2]
-
-		if use_spacing then
-			layout[#layout + 1] = {
-				widget_type = layout_blueprint_names.dynamic_spacing,
-				size = {
-					grid_size[1],
-					10,
-				},
-			}
-			height_used = height_used + 10
-		end
-	end
-
-	local min_description_height = 10
-	local description = AchievementUIHelper.localized_description(achievement_definition)
-	local description_layout_entry
-
-	if description and not can_claim then
-		description_layout_entry = {
 			size = nil,
-			size_policy = "strict",
-			text = nil,
 			widget_type = nil,
-			widget_type = layout_blueprint_names.body,
-			text = description,
+			widget_type = layout_blueprint_names.dynamic_spacing,
 			size = {
 				grid_size[1],
-				20,
+				small_spacing,
 			},
 		}
-		layout[#layout + 1] = description_layout_entry
+		layout[#layout + 1] = {
+			widget_type = "claim_text",
+		}
+		height_used = height_used + small_spacing + blueprints.claim_text.size[2]
+	elseif self:_achievement_should_display_progress_bar(achievement_definition, is_complete) then
+		layout[#layout + 1] = {
+			size = nil,
+			widget_type = nil,
+			widget_type = layout_blueprint_names.dynamic_spacing,
+			size = {
+				grid_size[1],
+				small_spacing,
+			},
+		}
+		height_used = height_used + small_spacing
+		height_used = height_used
+			+ self:_add_progress_bar_to_grid_layout(
+				layout_blueprint_names,
+				blueprints,
+				achievement_definition,
+				is_complete,
+				layout
+			)
 	end
+
+	layout[#layout + 1] = {
+		size = nil,
+		widget_type = nil,
+		widget_type = layout_blueprint_names.dynamic_spacing,
+		size = {
+			grid_size[1],
+			large_spacing,
+		},
+	}
+	height_used = height_used + large_spacing
+
+	local description = AchievementUIHelper.localized_description(achievement_definition)
+	local description_layout_entry = {
+		size = nil,
+		size_policy = "strict",
+		text = nil,
+		widget_type = nil,
+		widget_type = layout_blueprint_names.body,
+		text = description,
+		size = {
+			grid_size[1],
+			20,
+		},
+	}
+
+	layout[#layout + 1] = description_layout_entry
+	height_used = height_used + 20
 
 	local reward_item, item_group = AchievementUIHelper.get_reward_item(achievement_definition)
 	local reward_layouts = {}
@@ -948,8 +952,9 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 					progress, goal = type.get_progress(sub_achievement_definition, player)
 					if sub_achievement_is_complete then
 						value = progress .. "/" .. goal
-
-						--value = goal .. "/" .. goal
+						if progress < goal then
+							value = goal .. "/" .. goal
+						end
 					else
 						value = progress .. "/" .. goal
 					end
@@ -997,7 +1002,9 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 								if sub_sub_achievement_is_complete then
 									value = progress .. "/" .. goal
 
-									--value = goal .. "/" .. goal
+									if progress < goal then
+										value = goal .. "/" .. goal
+									end
 								else
 									value = progress .. "/" .. goal
 								end
