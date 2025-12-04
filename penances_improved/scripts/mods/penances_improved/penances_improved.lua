@@ -17,6 +17,7 @@ local ViewElementGrid = require("scripts/ui/view_elements/view_element_grid/view
 local ViewElementInputLegend = require("scripts/ui/view_elements/view_element_input_legend/view_element_input_legend")
 local ViewElementMenuPanel = require("scripts/ui/view_elements/view_element_menu_panel/view_element_menu_panel")
 local TextUtilities = require("scripts/utilities/ui/text")
+local Text = require("scripts/utilities/ui/text")
 local UIFonts = require("scripts/managers/ui/ui_fonts")
 local UIRenderer = require("scripts/managers/ui/ui_renderer")
 local Breeds = require("scripts/settings/breed/breeds")
@@ -616,6 +617,75 @@ local function _stats_sort_iterator(stats, stats_sorting)
 	end
 end
 
+PenanceOverviewView._get_achievement_bar_progress = function(self, achievement_definition)
+	local player = self:_player()
+	local achievement_type_name = achievement_definition.type
+	local achievement_type = AchievementTypes[achievement_type_name]
+
+	if achievement_type and achievement_type.get_progress ~= nil then
+		local progress, goal = achievement_type.get_progress(achievement_definition, player)
+
+		progress = math.min(progress, goal)
+
+		local fraction = progress / goal
+
+		return fraction, progress, goal
+	end
+
+	return 0, 0, 0
+end
+
+PenanceOverviewView._add_progress_bar_to_grid_layout = function(
+	self,
+	blueprint_names,
+	blueprints,
+	achievement_definition,
+	is_complete,
+	layout
+)
+	local blueprint_name = blueprint_names.progress_bar
+	local bar_progress, progress, goal = self:_get_achievement_bar_progress(achievement_definition)
+	local value_text = is_complete
+			and Text.apply_color_to_text(tostring(progress), Color.ui_achievement_icon_completed(255, true))
+		or tostring(progress)
+	local target_text = is_complete
+			and Text.apply_color_to_text(tostring(goal), Color.ui_achievement_icon_completed(255, true))
+		or tostring(goal)
+
+	-- updated to always show the current stat
+	local achtype = AchievementTypes[achievement_definition.type]
+	local player = self:_player()
+	local value = ""
+	if achtype and achtype.get_progress ~= nil then
+		progress, goal = achtype.get_progress(achievement_definition, player)
+		if is_complete then
+			value = progress .. "/" .. goal
+			value_text = progress
+			target_text = goal
+			if progress < goal then
+				value = goal .. "/" .. goal
+				value_text = goal
+				target_text = goal
+			end
+		else
+			value = progress .. "/" .. goal
+			value_text = progress
+			target_text = goal
+		end
+	end
+
+	layout[#layout + 1] = {
+		progress = nil,
+		text = nil,
+		widget_type = nil,
+		widget_type = blueprint_name,
+		text = string.format("%s/%s", value_text, target_text),
+		progress = bar_progress,
+	}
+
+	return blueprints[blueprint_name].size[2]
+end
+
 -- Override default card layout
 PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id, is_tooltip)
 	local player = self:_player()
@@ -675,6 +745,45 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 		achievement = achievement_definition,
 	}
 	height_used = height_used + blueprints[layout_blueprint_names.tracked].size[2]
+
+	-- add completion date!
+	local _, completion_time = Managers.achievements:achievement_completed(player, achievement_definition.id)
+	local timestamp
+	if completion_time and completion_time ~= 0 then
+		local pattern = "(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)"
+
+		-- if completion_time is not a number (needs to be a string to match pattern)
+		if type(completion_time) ~= "number" then
+			local year, month, day, hour, minute, second = completion_time:match(pattern)
+
+			timestamp = os.time({
+				year = year,
+				month = month,
+				day = day,
+				hour = hour,
+				min = minute,
+				sec = second,
+			})
+		end
+	end
+	local date
+	if timestamp then
+		date = os.date("%B %d, %Y %H:%M", timestamp)
+	end
+	if date and is_complete then
+		layout[#layout + 1] = {
+			size_policy = "flexible",
+			text = nil,
+			widget_type = nil,
+			widget_type = layout_blueprint_names.body,
+			text = TextUtilities.apply_color_to_text(
+				Localize("loc_notification_desc_achievement_completed"),
+				Color.terminal_text_key_value(255, true)
+			) .. "\nCompleted on: " .. date,
+		}
+		height_used = height_used + blueprints[layout_blueprint_names.body].size[2]
+	end
+
 	layout[#layout + 1] = {
 		size = nil,
 		widget_type = nil,
@@ -729,7 +838,7 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 			widget_type = "claim_text",
 		}
 		height_used = height_used + small_spacing + blueprints.claim_text.size[2]
-	elseif self:_achievement_should_display_progress_bar(achievement_definition, is_complete) then
+	else
 		layout[#layout + 1] = {
 			size = nil,
 			widget_type = nil,
