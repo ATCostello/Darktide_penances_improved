@@ -48,50 +48,18 @@ mod:hook_safe(CLASS.InventoryWeaponCosmeticsView, "cb_switch_tab", function(self
 	weapon_preview_loaded = true
 end)
 
+mod:hook_safe(CLASS.PenanceOverviewView, "init", function(self, settings, context)
+	self._parent = context.parent
+end)
+
+mod:hook_safe(CLASS.CosmeticsInspectView, "init", function(self, settings, context)
+	self._parent = context.parent
+end)
+
 local InventoryWeaponCosmeticsView =
 	require("scripts/ui/views/inventory_weapon_cosmetics_view/inventory_weapon_cosmetics_view")
 local Definitions =
 	require("scripts/ui/views/inventory_weapon_cosmetics_view/inventory_weapon_cosmetics_view_definitions")
-
-InventoryWeaponCosmeticsView.on_enter = function(self)
-	InventoryWeaponCosmeticsView.super.on_enter(self)
-
-	self._render_settings.alpha_multiplier = 0
-	self._inventory_items = {}
-
-	self:_setup_forward_gui()
-
-	self._background_widget = self:_create_widget("background", Definitions.background_widget)
-
-	if not self._selected_item then
-		return
-	end
-
-	local grid_size = Definitions.grid_settings.grid_size
-
-	self._content_blueprints = require("scripts/ui/view_content_blueprints/item_blueprints")(grid_size)
-
-	self:_setup_input_legend()
-
-	if not self._on_enter_anim_id then
-		self._on_enter_anim_id = self:_start_animation("on_enter", self._widgets_by_name, self)
-	end
-
-	if self._parent then
-		self._world_spawner = self._parent:world_spawner()
-	end
-
-	if self._presentation_item then
-		self:_setup_weapon_preview()
-		self:_preview_item(self._presentation_item)
-	end
-
-	self:present_grid_layout({})
-	self:_register_button_callbacks()
-	self:_setup_menu_tabs()
-	self:_load_layout()
-	self:_register_event("event_force_refresh_inventory", "event_force_refresh_inventory")
-end
 
 CosmeticsInspectView._handle_back_pressed = function(self)
 	if Managers.ui:view_active("inventory_weapon_cosmetics_view") and weapon_preview_loaded then
@@ -315,7 +283,11 @@ CosmeticsInspectView._setup_weapon_preview = function(self)
 		local allow_rotation = true
 
 		self._weapon_preview:set_force_allow_rotation(allow_rotation)
-		self:_set_weapon_zoom(self._weapon_zoom_fraction)
+		self._weapon_preview:center_align(0, {
+			-0.2,
+			-0.3,
+			-0.25,
+		})
 	end
 end
 
@@ -357,7 +329,9 @@ CosmeticsInspectView._preview_item_func = function(self, item)
 		if self._weapon_preview then
 			local disable_auto_spin = false
 
-			self._weapon_preview:present_item(item, disable_auto_spin)
+			self._weapon_preview:present_item(item, disable_auto_spin, function()
+				self:_set_weapon_zoom(self._weapon_zoom_fraction)
+			end)
 		end
 
 		local visible = true
@@ -404,6 +378,7 @@ CosmeticsInspectView._start_preview_item = function(self)
 			local item_animation_event = item.animation_event
 			local item_face_animation_event = item.face_animation_event
 			local animation_event_name_suffix = self._animation_event_name_suffix
+			self._parent = context.parent
 
 			self._disable_zoom = context.disable_zoom or true
 			context.state_machine = context.state_machine or item.state_machine
@@ -517,6 +492,7 @@ CosmeticsInspectView._start_preview_item = function(self)
 				self._weapon_zoom_target = -0.45
 				self._min_zoom = -0.45
 				self._max_zoom = 4
+
 				self:_setup_weapon_preview()
 				local visual_item = ItemUtils.weapon_trinket_preview_item(item)
 				CosmeticsInspectView._preview_item_func(self, visual_item)
@@ -555,6 +531,7 @@ CosmeticsInspectView._start_preview_item = function(self)
 				self._weapon_zoom_target = -0.45
 				self._min_zoom = -0.45
 				self._max_zoom = 4
+
 				self:_setup_weapon_preview()
 				local visual_item = ItemUtils.weapon_skin_preview_item(item)
 				CosmeticsInspectView._preview_item_func(self, visual_item)
@@ -1599,10 +1576,24 @@ PenanceOverviewView._cb_view_on_operative = function(self)
 		end
 		if not Managers.ui:view_active("inventory_weapon_cosmetics_view") then
 			self._customize_view_opened = true
+			self._previewed_item = selected_item
+			self._preview_player = Managers.player:local_player(1)
+
+			-- fix for self._parent crash on inspecting from the penance view
+			if not self._parent then
+				self._parent = {}
+				self._parent.world_spawner = function()
+					return nil
+				end
+			end
 
 			Managers.ui:open_view("inventory_weapon_cosmetics_view", nil, nil, nil, nil, {
-				player = Managers.player:local_player(1),
-				preview_item = selected_item,
+				new_items_gear_ids = nil,
+				parent = nil,
+				player = nil,
+				preview_item = nil,
+				player = self._preview_player,
+				preview_item = self._previewed_item,
 				parent = self._parent,
 				new_items_gear_ids = self._parent and self._parent._new_items_gear_ids,
 			})
@@ -1610,7 +1601,6 @@ PenanceOverviewView._cb_view_on_operative = function(self)
 
 		if context and not Managers.ui:view_active(view_name) then
 			Managers.ui:open_view(view_name, nil, nil, nil, nil, context)
-
 			self._inpect_view_opened = view_name
 		end
 	end)
