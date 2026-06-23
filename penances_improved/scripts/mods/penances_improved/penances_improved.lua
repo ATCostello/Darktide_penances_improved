@@ -211,8 +211,10 @@ local WorldRenderUtils = require("scripts/utilities/world_render")
 CosmeticsInspectView._setup_background_world = function(self)
 	local profile = self._preview_profile or self._mannequin_profile
 	local archetype = profile and profile.archetype
-	local breed_name = profile and archetype.breed or "human"
-	local default_camera_event_id = "event_register_cosmetics_preview_default_camera_" .. breed_name
+	local breed_name = archetype and archetype.breed or "human"
+	local breed = Breeds[breed_name]
+	local body_size = breed.body_size
+	local default_camera_event_id = string.format("event_register_%s_cosmetics_preview_default_camera", body_size)
 
 	self[default_camera_event_id] = function(instance, camera_unit)
 		if instance._context then
@@ -241,11 +243,25 @@ CosmeticsInspectView._setup_background_world = function(self)
 	self._item_camera_by_slot_id = {}
 
 	for slot_name, slot in pairs(ItemSlotSettings) do
-		if slot.slot_type == "gear" then
-			local item_camera_event_id = "event_register_cosmetics_preview_item_camera_"
-				.. breed_name
-				.. "_"
-				.. slot_name
+		local is_gear = slot.slot_type == "gear"
+		local is_body = slot.slot_type == "body"
+		local is_companion_gear = slot_name == "slot_companion_gear_full"
+		local valid_player_slot = is_gear and not is_companion_gear
+
+		valid_player_slot = valid_player_slot or is_body
+
+		if valid_player_slot then
+			local item_camera_event_id = string.format("event_register_%s_%s_cosmetics_preview_item_camera", body_size, slot_name)
+
+			self[item_camera_event_id] = function(instance, camera_unit)
+				instance._item_camera_by_slot_id[slot_name] = camera_unit
+
+				instance:_unregister_event(item_camera_event_id)
+			end
+
+			self:_register_event(item_camera_event_id)
+		elseif archetype and archetype.companion_breed and is_companion_gear then
+			local item_camera_event_id = string.format("event_register_%s_%s_cosmetics_preview_item_camera", archetype.name, slot_name)
 
 			self[item_camera_event_id] = function(instance, camera_unit)
 				instance._item_camera_by_slot_id[slot_name] = camera_unit
@@ -385,7 +401,6 @@ CosmeticsInspectView._start_preview_item = function(self)
 			context.animation_event = context.animation_event or item_animation_event
 			context.face_animation_event = self._previewed_with_gear
 					and (context.face_animation_event or item_face_animation_event)
-				or nil
 
 			local animation_event = item_animation_event
 
@@ -396,8 +411,8 @@ CosmeticsInspectView._start_preview_item = function(self)
 			if self._profile_spawner then
 				self._profile_spawner:assign_state_machine(
 					context.state_machine,
-					context.item_animation_event,
-					context.item_face_animation_event
+					context.animation_event,
+					context.face_animation_event
 				)
 			end
 
@@ -438,7 +453,7 @@ CosmeticsInspectView._start_preview_item = function(self)
 		end
 
 		self.hide_character = false
-		if Managers.ui:view_active("penance_overview_view") and weapon_preview_loaded then
+		if Managers.ui:view_active("penance_overview_view") then
 			if item.item_type == "PORTRAIT_FRAME" then
 				if self._widgets_by_name.portrait_preview_panel then
 					self._preview_player = false
@@ -635,20 +650,10 @@ PenanceOverviewView._add_progress_bar_to_grid_layout = function(
 	local value = ""
 	if achtype and achtype.get_progress ~= nil then
 		progress, goal = achtype.get_progress(achievement_definition, player)
-		if is_complete then
-			value = progress .. "/" .. goal
-			value_text = progress
-			target_text = goal
-			if progress < goal then
-				value = goal .. "/" .. goal
-				value_text = goal
-				target_text = goal
-			end
-		else
-			value = progress .. "/" .. goal
-			value_text = progress
-			target_text = goal
-		end
+
+		value = progress .. "/" .. goal
+		value_text = progress
+		target_text = goal
 	end
 
 	layout[#layout + 1] = {
@@ -670,6 +675,15 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 	local achievement_definition = Managers.achievements:achievement_definition(achievement_id)
 	local can_claim = not is_tooltip and self:_can_claim_achievement_by_id(achievement_id)
 	local is_complete = not can_claim and Managers.achievements:achievement_completed(player, achievement_id)
+
+	if not is_complete and not can_claim then
+		local achievement_def = Managers.achievements:achievement_definition(achievement_id)
+		local achtype = AchievementTypes[achievement_def.type]
+		if achtype and achtype.get_progress then
+			local progress, goal = achtype.get_progress(achievement_def, player)
+			is_complete = progress >= goal
+		end
+	end
 	local is_favorite = AchievementUIHelper.is_favorite_achievement(achievement_id)
 	local achievement_score = achievement_definition.score or 0
 	local achievement_family_order = AchievementUIHelper.get_achievement_family_order(achievement)
@@ -1022,6 +1036,15 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 				local sub_achievement = AchievementUIHelper.achievement_definition_by_id(sub_achievement_id)
 				local sub_achievement_is_complete =
 					Managers.achievements:achievement_completed(player, sub_achievement_id)
+
+				if not sub_achievement_is_complete then
+					local sub_type = AchievementTypes[sub_achievement.type]
+					if sub_type and sub_type.get_progress then
+						local sub_progress, sub_goal = sub_type.get_progress(sub_achievement, player)
+						sub_achievement_is_complete = sub_progress >= sub_goal
+					end
+				end
+
 				local sub_achievement_title = AchievementUIHelper.localized_title(sub_achievement)
 				local sub_achievement_family_order = AchievementUIHelper.get_achievement_family_order(sub_achievement)
 				local sub_achievement_description = AchievementUIHelper.localized_description(sub_achievement)
@@ -1036,13 +1059,12 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 
 				if type and type.get_progress ~= nil then
 					progress, goal = type.get_progress(sub_achievement_definition, player)
+					value = progress .. "/" .. goal
+
 					if sub_achievement_is_complete then
-						value = progress .. "/" .. goal
 						if progress < goal then
 							value = goal .. "/" .. goal
 						end
-					else
-						value = progress .. "/" .. goal
 					end
 				end
 
@@ -1068,6 +1090,15 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 								AchievementUIHelper.achievement_definition_by_id(sub_sub_achievement_id)
 							local sub_sub_achievement_is_complete =
 								Managers.achievements:achievement_completed(player, sub_sub_achievement_id)
+
+							if not sub_sub_achievement_is_complete then
+								local sub_sub_type = AchievementTypes[sub_sub_achievement.type]
+								if sub_sub_type and sub_sub_type.get_progress then
+									local sub_sub_progress, sub_sub_goal = sub_sub_type.get_progress(sub_sub_achievement, player)
+									sub_sub_achievement_is_complete = sub_sub_progress >= sub_sub_goal
+								end
+							end
+
 							local sub_sub_achievement_title = AchievementUIHelper.localized_title(sub_sub_achievement)
 							local sub_sub_achievement_family_order =
 								AchievementUIHelper.get_achievement_family_order(sub_sub_achievement)
@@ -1085,14 +1116,12 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 							if type and type.get_progress ~= nil then
 								progress, goal = type.get_progress(sub_sub_achievement_definition, player)
 
-								if sub_sub_achievement_is_complete then
-									value = progress .. "/" .. goal
+								value = progress .. "/" .. goal
 
+								if sub_sub_achievement_is_complete then
 									if progress < goal then
 										value = goal .. "/" .. goal
 									end
-								else
-									value = progress .. "/" .. goal
 								end
 							end
 
@@ -1541,8 +1570,7 @@ PenanceOverviewView._cb_view_on_operative = function(self)
 
 			local archetype = profile.archetype
 			local breed_name = archetype.breed
-			local breed = Breeds[breed_name]
-			local state_machine = breed.inventory_state_machine
+			local state_machine = archetype.inventory_state_machine
 			local animation_event = item.inventory_animation_event or "inventory_idle_default"
 
 			context.disable_zoom = true
@@ -2587,4 +2615,58 @@ PenanceOverviewView._get_tooltip_layout = function(self, achievement_id)
 	-- original override expects: (self, achievement_id, is_tooltip)
 	-- The new system does not pass "is_tooltip", so default to false.
 	return self:_get_achievement_card_layout(achievement_id, true)
+end
+
+-- Override to update completion status from live progress
+PenanceOverviewView._get_penance_layout_entry_by_achievement_id = function(self, achievement_id)
+	local player = self:_player()
+	local achievement = AchievementUIHelper.achievement_definition_by_id(achievement_id)
+	local achievement_definition = Managers.achievements:achievement_definition(achievement_id)
+	local achievement_family_order = AchievementUIHelper.get_achievement_family_order(achievement_definition)
+	local is_currently_favorited = self:is_favorite_achievement(achievement_id)
+	local can_claim = self:_can_claim_achievement_by_id(achievement_id)
+	local is_complete = not can_claim and Managers.achievements:achievement_completed(player, achievement_id)
+
+	if not is_complete and not can_claim then
+		local achtype = AchievementTypes[achievement_definition.type]
+		if achtype and achtype.get_progress then
+			local progress, goal = achtype.get_progress(achievement_definition, player)
+			is_complete = progress >= goal
+		end
+	end
+
+	local draw_progress_bar = self:_achievement_should_display_progress_bar(achievement_definition, is_complete)
+	local bar_progress, progress, goal
+
+	if draw_progress_bar then
+		bar_progress, progress, goal = self:_get_achievement_bar_progress(achievement_definition)
+	end
+
+	local title = AchievementUIHelper.localized_title(achievement_definition)
+	local separate_private_description = true
+	local description = AchievementUIHelper.localized_description(achievement_definition, separate_private_description)
+	local progress_text = progress and (progress > 0 and Text.apply_color_to_text(tostring(progress), Color.ui_achievement_icon_completed(255, true)) or tostring(progress))
+	local bar_values_text = progress_text and progress_text .. "/" .. tostring(goal)
+	local reward_item, _ = AchievementUIHelper.get_reward_item(achievement_definition)
+	local reward_type_icon = reward_item and ItemUtils.type_texture(reward_item)
+	local achievement_score = achievement.score or 0
+	local achievement_icon = achievement.icon
+	local widget_type = self._use_large_penance_entries and "penance_large" or "penance"
+
+	return {
+		widget_type = widget_type,
+		texture = achievement_icon,
+		item = reward_item,
+		reward_icon = reward_type_icon,
+		achievement_score = achievement_score,
+		title = title,
+		description = description,
+		completed = is_complete,
+		tracked = is_currently_favorited,
+		bar_progress = bar_progress,
+		bar_values_text = bar_values_text,
+		can_claim = can_claim,
+		achievement_id = achievement_id,
+		family_index = achievement_family_order,
+	}
 end

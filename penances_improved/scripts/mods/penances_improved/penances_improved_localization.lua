@@ -1,5 +1,5 @@
 local mod = get_mod("penances_improved")
-mod.version = "2.5.06"
+mod.version = "2.5.07"
 mod:info("Penance View Improved is installed, using version: " .. tostring(mod.version))
 
 local colours = {
