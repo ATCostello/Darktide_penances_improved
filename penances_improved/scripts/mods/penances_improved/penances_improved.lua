@@ -42,11 +42,6 @@ local ANIMATION_SLOTS_MAP = {
 	slot_animation_end_of_round = true,
 }
 
-local weapon_preview_loaded = false
-mod:hook_safe(CLASS.InventoryWeaponCosmeticsView, "cb_switch_tab", function(self, element)
-	weapon_preview_loaded = true
-end)
-
 mod:hook_safe(CLASS.PenanceOverviewView, "init", function(self, settings, context)
 	self._parent = context.parent
 end)
@@ -62,13 +57,14 @@ local Definitions =
 
 CosmeticsInspectView._handle_back_pressed = function(self)
 	local penance_view_opened = false
+
 	for _, view_name in pairs(Managers.ui:active_views()) do
 		if view_name == "penance_overview_view" then
 			penance_view_opened = true
 		end
 	end
 
-	if Managers.ui:view_active("inventory_weapon_cosmetics_view") and weapon_preview_loaded and penance_view_opened then
+	if Managers.ui:view_active("inventory_weapon_cosmetics_view") and penance_view_opened then
 		Managers.ui:close_view("inventory_weapon_cosmetics_view")
 	end
 
@@ -476,8 +472,6 @@ CosmeticsInspectView._start_preview_item = function(self)
 
 					self:_setup_weapon_preview()
 
-					weapon_preview_loaded = true
-
 					self._widgets_by_name.portrait_preview_panel.visible = true
 					local icon
 					if item.texture_resource then
@@ -501,7 +495,6 @@ CosmeticsInspectView._start_preview_item = function(self)
 					self._previewed_with_gear = false
 
 					self:_setup_weapon_preview()
-					weapon_preview_loaded = true
 
 					local widget = self._widgets_by_name.character_insignia
 					widget.visible = true
@@ -523,7 +516,6 @@ CosmeticsInspectView._start_preview_item = function(self)
 				self._max_zoom = 4
 
 				self:_setup_weapon_preview()
-				weapon_preview_loaded = true
 				local visual_item = ItemUtils.weapon_trinket_preview_item(item)
 				CosmeticsInspectView._preview_item_func(self, visual_item)
 			elseif item.item_type == "CHARACTER_TITLE" then
@@ -535,7 +527,6 @@ CosmeticsInspectView._start_preview_item = function(self)
 				self.hide_character = true
 
 				self:_setup_weapon_preview()
-				weapon_preview_loaded = true
 			elseif
 				item.item_type == "WEAPON_SKIN" and not Managers.ui:view_active("inventory_weapon_cosmetics_view")
 			then
@@ -552,7 +543,6 @@ CosmeticsInspectView._start_preview_item = function(self)
 				self._max_zoom = 4
 
 				self:_setup_weapon_preview()
-				weapon_preview_loaded = true
 				local visual_item = ItemUtils.weapon_skin_preview_item(item)
 				CosmeticsInspectView._preview_item_func(self, visual_item)
 			else
@@ -569,7 +559,6 @@ CosmeticsInspectView._start_preview_item = function(self)
 				self._max_zoom = 4
 
 				self:_setup_weapon_preview(true)
-				weapon_preview_loaded = true
 			end
 		end
 
