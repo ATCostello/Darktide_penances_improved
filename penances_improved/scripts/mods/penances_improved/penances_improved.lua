@@ -572,7 +572,6 @@ CosmeticsInspectView._start_preview_item = function(self)
 				weapon_preview_loaded = true
 			end
 		end
-		dbg_1 = Managers.ui:active_views()
 
 		local description = item.description and Localize(item.description)
 
