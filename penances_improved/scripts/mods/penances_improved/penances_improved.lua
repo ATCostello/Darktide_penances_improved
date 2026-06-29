@@ -454,7 +454,10 @@ CosmeticsInspectView._start_preview_item = function(self)
 		end
 
 		self.hide_character = false
-		if Managers.ui:view_active("penance_overview_view") then
+		if
+			Managers.ui:view_active("penance_overview_view")
+			or Managers.ui:view_active("inventory_weapon_cosmetics_view")
+		then
 			if item.item_type == "PORTRAIT_FRAME" then
 				if self._widgets_by_name.portrait_preview_panel then
 					self._preview_player = false
