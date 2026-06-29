@@ -10,7 +10,6 @@ local PenanceOverviewViewSettings = require("scripts/ui/views/penance_overview_v
 local AchievementCategories = require("scripts/settings/achievements/achievement_categories")
 local AchievementTypes = require("scripts/managers/achievements/achievement_types")
 local AchievementUIHelper = require("scripts/managers/achievements/utility/achievement_ui_helper")
-local InputUtils = require("scripts/managers/input/input_utils")
 local ItemUtils = require("scripts/utilities/items")
 local StatDefinitions = require("scripts/managers/stats/stat_definitions")
 local ViewElementGrid = require("scripts/ui/view_elements/view_element_grid/view_element_grid")
@@ -251,7 +250,8 @@ CosmeticsInspectView._setup_background_world = function(self)
 		valid_player_slot = valid_player_slot or is_body
 
 		if valid_player_slot then
-			local item_camera_event_id = string.format("event_register_%s_%s_cosmetics_preview_item_camera", body_size, slot_name)
+			local item_camera_event_id =
+				string.format("event_register_%s_%s_cosmetics_preview_item_camera", body_size, slot_name)
 
 			self[item_camera_event_id] = function(instance, camera_unit)
 				instance._item_camera_by_slot_id[slot_name] = camera_unit
@@ -261,7 +261,8 @@ CosmeticsInspectView._setup_background_world = function(self)
 
 			self:_register_event(item_camera_event_id)
 		elseif archetype and archetype.companion_breed and is_companion_gear then
-			local item_camera_event_id = string.format("event_register_%s_%s_cosmetics_preview_item_camera", archetype.name, slot_name)
+			local item_camera_event_id =
+				string.format("event_register_%s_%s_cosmetics_preview_item_camera", archetype.name, slot_name)
 
 			self[item_camera_event_id] = function(instance, camera_unit)
 				instance._item_camera_by_slot_id[slot_name] = camera_unit
@@ -286,13 +287,13 @@ CosmeticsInspectView._setup_background_world = function(self)
 	self._world_spawner:spawn_level(level_name)
 end
 
-CosmeticsInspectView._setup_weapon_preview = function(self)
+CosmeticsInspectView._setup_weapon_preview = function(self, blur)
 	if not self._weapon_preview then
 		local reference_name = "weapon_preview"
 		local layer = 10
 		local context = {
 			draw_background = false,
-			ignore_blur = false,
+			ignore_blur = blur or false,
 		}
 		self._weapon_preview = self:_add_element(ViewElementInventoryWeaponPreview, reference_name, layer, context)
 
@@ -400,7 +401,7 @@ CosmeticsInspectView._start_preview_item = function(self)
 			context.state_machine = context.state_machine or item.state_machine
 			context.animation_event = context.animation_event or item_animation_event
 			context.face_animation_event = self._previewed_with_gear
-					and (context.face_animation_event or item_face_animation_event)
+				and (context.face_animation_event or item_face_animation_event)
 
 			local animation_event = item_animation_event
 
@@ -465,6 +466,8 @@ CosmeticsInspectView._start_preview_item = function(self)
 
 					self:_setup_weapon_preview()
 
+					weapon_preview_loaded = true
+
 					self._widgets_by_name.portrait_preview_panel.visible = true
 					local icon
 					if item.texture_resource then
@@ -488,6 +491,7 @@ CosmeticsInspectView._start_preview_item = function(self)
 					self._previewed_with_gear = false
 
 					self:_setup_weapon_preview()
+					weapon_preview_loaded = true
 
 					local widget = self._widgets_by_name.character_insignia
 					widget.visible = true
@@ -509,22 +513,9 @@ CosmeticsInspectView._start_preview_item = function(self)
 				self._max_zoom = 4
 
 				self:_setup_weapon_preview()
+				weapon_preview_loaded = true
 				local visual_item = ItemUtils.weapon_trinket_preview_item(item)
 				CosmeticsInspectView._preview_item_func(self, visual_item)
-
-				if cvi then
-					self._weapon_preview:center_align(0, {
-						-0.0,
-						-0.0,
-						-0.1,
-					})
-				else
-					self._weapon_preview:center_align(0, {
-						-0.4,
-						-0.0,
-						-0.1,
-					})
-				end
 			elseif item.item_type == "CHARACTER_TITLE" then
 				self._preview_player = false
 				self._spawn_player = false
@@ -534,6 +525,7 @@ CosmeticsInspectView._start_preview_item = function(self)
 				self.hide_character = true
 
 				self:_setup_weapon_preview()
+				weapon_preview_loaded = true
 			elseif item.item_type == "WEAPON_SKIN" then
 				self._preview_player = false
 				self._spawn_player = false
@@ -548,22 +540,24 @@ CosmeticsInspectView._start_preview_item = function(self)
 				self._max_zoom = 4
 
 				self:_setup_weapon_preview()
+				weapon_preview_loaded = true
 				local visual_item = ItemUtils.weapon_skin_preview_item(item)
 				CosmeticsInspectView._preview_item_func(self, visual_item)
+			else
+				self._preview_player = true
+				self._spawn_player = true
+				self._can_preview_with_gear = true
+				self._on_enter_animation_triggered = true
+				self._previewed_with_gear = true
+				self.hide_character = false
 
-				if cvi then
-					self._weapon_preview:center_align(0, {
-						-0.0,
-						-2.0,
-						-0.2,
-					})
-				else
-					self._weapon_preview:center_align(0, {
-						-0.4,
-						-2.0,
-						-0.2,
-					})
-				end
+				self._weapon_zoom_fraction = -0.45
+				self._weapon_zoom_target = -0.45
+				self._min_zoom = -0.45
+				self._max_zoom = 4
+
+				self:_setup_weapon_preview(true)
+				weapon_preview_loaded = true
 			end
 		end
 
@@ -675,7 +669,6 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 	local achievement_definition = Managers.achievements:achievement_definition(achievement_id)
 	local can_claim = not is_tooltip and self:_can_claim_achievement_by_id(achievement_id)
 	local is_complete = not can_claim and Managers.achievements:achievement_completed(player, achievement_id)
-
 	if not is_complete and not can_claim then
 		local achievement_def = Managers.achievements:achievement_definition(achievement_id)
 		local achtype = AchievementTypes[achievement_def.type]
@@ -1094,7 +1087,8 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 							if not sub_sub_achievement_is_complete then
 								local sub_sub_type = AchievementTypes[sub_sub_achievement.type]
 								if sub_sub_type and sub_sub_type.get_progress then
-									local sub_sub_progress, sub_sub_goal = sub_sub_type.get_progress(sub_sub_achievement, player)
+									local sub_sub_progress, sub_sub_goal =
+										sub_sub_type.get_progress(sub_sub_achievement, player)
 									sub_sub_achievement_is_complete = sub_sub_progress >= sub_sub_goal
 								end
 							end
@@ -1269,7 +1263,7 @@ PenanceOverviewView._get_achievement_card_layout = function(self, achievement_id
 	end
 
 	if description_layout_entry then
-		description_layout_entry.size[2] = space_left
+		description_layout_entry.size[2] = math.max(space_left, 20)
 		height_used = height_used + space_left
 	elseif can_claim then
 		layout[#layout + 1] = {
@@ -1724,27 +1718,6 @@ local add_definitions = function(definitions)
 		{
 			alignment = "right_alignment",
 			display_name = "",
-			input_action = "hotkey_toggle_item_tooltip",
-			on_pressed_callback = "_toggle_penance_sort_mode",
-			visibility_function = function(parent, id)
-				local display_name = parent._penance_sort_mode or "default"
-
-				if display_name == "default" then
-					display_name = "loc_PI_default"
-				else
-					display_name = "loc_PI_recently_completed"
-				end
-
-				parent._input_legend_element:set_display_name(id, display_name)
-
-				return parent._selected_top_option_key == "browser"
-					and not parent._wintracks_focused
-					and parent._enter_animation_complete
-			end,
-		},
-		{
-			alignment = "right_alignment",
-			display_name = "",
 			input_action = "cycle_list_primary",
 			on_pressed_callback = "cb_on_switch_focus",
 			visibility_function = function(parent, id)
@@ -1758,15 +1731,41 @@ local add_definitions = function(definitions)
 					and parent._enter_animation_complete
 			end,
 		},
-		{
-			display_name = "loc_PI_view_on_operative",
-			input_action = "accept_invite_notification",
+	}
+
+	local sort_action = mod:get("keybind_sort_mode")
+	if sort_action and sort_action ~= "off" then
+		definitions.legend_inputs[#definitions.legend_inputs + 1] = {
+			alignment = "right_alignment",
+			display_name = "",
+			input_action = sort_action,
+			on_pressed_callback = "_toggle_penance_sort_mode",
+			visibility_function = function(parent, id)
+				local is_default = not parent._penance_sort_mode or parent._penance_sort_mode == "default"
+				local display_name_key = is_default and "loc_PI_default" or "loc_PI_recently_completed"
+
+				parent._input_legend_element:set_display_name(id, display_name_key)
+
+				return parent._selected_top_option_key == "browser"
+					and not parent._wintracks_focused
+					and parent._enter_animation_complete
+			end,
+		}
+	end
+
+	local inspect_action = mod:get("keybind_inspect_reward")
+	if inspect_action and inspect_action ~= "off" then
+		definitions.legend_inputs[#definitions.legend_inputs + 1] = {
+			display_name = "",
+			input_action = inspect_action,
 			on_pressed_callback = "_cb_view_on_operative",
-			visibility_function = function(parent)
+			visibility_function = function(parent, id)
+				parent._input_legend_element:set_display_name(id, "loc_PI_view_on_operative")
+
 				return parent:_should_show_view_operative()
 			end,
-		},
-	}
+		}
+	end
 end
 
 local function _setup_blueprint_penance_icon_and_name(input_size, edge_padding)
@@ -2338,19 +2337,24 @@ local add_blueprints = function(blueprints)
 		if timestamp then
 			date = os.date("%c", timestamp)
 		end
-		local description_text = not can_claim
-				and completed
-				and date
-				and TextUtilities.apply_color_to_text(
-					Localize("loc_notification_desc_achievement_completed"),
-					Color.terminal_text_key_value(255, true)
-				) .. "\nCompleted on: " .. date
-			or not can_claim and completed and TextUtilities.apply_color_to_text(
+		local description_text
+		if not can_claim and completed then
+			local base_desc = element.description or ""
+			local completion_line = TextUtilities.apply_color_to_text(
 				Localize("loc_notification_desc_achievement_completed"),
 				Color.terminal_text_key_value(255, true)
 			)
-			or element.description
-			or "n/a"
+			if date then
+				--completion_line = completion_line .. "\nCompleted on: " .. date
+			end
+			if base_desc ~= "" then
+				description_text = completion_line .. "\n" .. base_desc
+			else
+				description_text = completion_line
+			end
+		else
+			description_text = element.description or "n/a"
+		end
 
 		if description_text then
 			local description_text_style = style.description
@@ -2645,7 +2649,12 @@ PenanceOverviewView._get_penance_layout_entry_by_achievement_id = function(self,
 	local title = AchievementUIHelper.localized_title(achievement_definition)
 	local separate_private_description = true
 	local description = AchievementUIHelper.localized_description(achievement_definition, separate_private_description)
-	local progress_text = progress and (progress > 0 and Text.apply_color_to_text(tostring(progress), Color.ui_achievement_icon_completed(255, true)) or tostring(progress))
+	local progress_text = progress
+		and (
+			progress > 0
+				and Text.apply_color_to_text(tostring(progress), Color.ui_achievement_icon_completed(255, true))
+			or tostring(progress)
+		)
 	local bar_values_text = progress_text and progress_text .. "/" .. tostring(goal)
 	local reward_item, _ = AchievementUIHelper.get_reward_item(achievement_definition)
 	local reward_type_icon = reward_item and ItemUtils.type_texture(reward_item)

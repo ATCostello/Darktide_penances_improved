@@ -1,5 +1,5 @@
 local mod = get_mod("penances_improved")
-mod.version = "2.5.07"
+mod.version = "2.6.0"
 mod:info("Penance View Improved is installed, using version: " .. tostring(mod.version))
 
 local colours = {
@@ -26,8 +26,33 @@ mod:add_global_localize_strings({
 	},
 	loc_PI_default = {
 		en = "Sort: Default",
+		ru = "По умолчанию",
+		["zh-cn"] = "默认",
 	},
 })
+
+mod._available_aliases = {
+	"character_create_randomize",
+	"hotkey_item_favorite",
+	"hotkey_help",
+	"hotkey_inventory",
+	"hotkey_loadout",
+	"hotkey_menu_special_1",
+	"hotkey_menu_special_2",
+	"hotkey_toggle_item_tooltip",
+	"accept_invite_notification",
+	"hotkey_item_inspect",
+	"hotkey_item_discard",
+	"hotkey_start_game",
+	"group_finder_group_inspect",
+	"next_hint",
+	"cycle_list_secondary",
+	"notification_option_a",
+	"notification_option_b",
+	"talent_unequip",
+}
+
+local InputUtils = require("scripts/managers/input/input_utils")
 
 mod.localisation = {
 	mod_name = {
@@ -80,13 +105,31 @@ mod.localisation = {
 	general_settings = {
 		en = "{#color(" .. colours.title .. ")}General Settings{#reset()}",
 	},
-	placeholder = {
-		en = "",
+	legend_settings = {
+		en = "{#color(" .. colours.title .. ")}Keybind Settings{#reset()}",
 	},
-	placeholder_tooltip = {
-		en = "A placeholder entry to initialise the mod menu, does not do anything yet.\nMore features may be added at some point.",
+	keybind_sort_mode = {
+		en = "Sort Mode Keybind (Requires game reload)",
+	},
+	keybind_sort_mode_tooltip = {
+		en = "Select which game input action to use for cycling sort modes.\nShown in the penance view legend. Changing this requires reloading the game.",
+	},
+	keybind_inspect_reward = {
+		en = "Inspect Reward Keybind (Requires game reload)",
+	},
+	keybind_inspect_reward_tooltip = {
+		en = "Select which game input action to use for inspecting rewards.\nShown in the penance view legend. Changing this requires reloading the game.",
+	},
+	off = {
+		en = Localize("loc_setting_checkbox_off"),
 	},
 }
+
+for _, action in ipairs(mod._available_aliases) do
+	local alias_key = Managers.ui:get_input_alias_key(action, "View")
+	local input_text = InputUtils.input_text_for_current_input_device("View", alias_key)
+	mod.localisation[action] = { en = input_text }
+end
 
 mod.toggle_pizazz = function()
 	for key, values in pairs(mod.localisation) do
