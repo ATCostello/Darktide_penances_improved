@@ -61,7 +61,14 @@ local Definitions =
 	require("scripts/ui/views/inventory_weapon_cosmetics_view/inventory_weapon_cosmetics_view_definitions")
 
 CosmeticsInspectView._handle_back_pressed = function(self)
-	if Managers.ui:view_active("inventory_weapon_cosmetics_view") and weapon_preview_loaded then
+	local penance_view_opened = false
+	for _, view_name in pairs(Managers.ui:active_views()) do
+		if view_name == "penance_overview_view" then
+			penance_view_opened = true
+		end
+	end
+
+	if Managers.ui:view_active("inventory_weapon_cosmetics_view") and weapon_preview_loaded and penance_view_opened then
 		Managers.ui:close_view("inventory_weapon_cosmetics_view")
 	end
 
@@ -529,7 +536,9 @@ CosmeticsInspectView._start_preview_item = function(self)
 
 				self:_setup_weapon_preview()
 				weapon_preview_loaded = true
-			elseif item.item_type == "WEAPON_SKIN" then
+			elseif
+				item.item_type == "WEAPON_SKIN" and not Managers.ui:view_active("inventory_weapon_cosmetics_view")
+			then
 				self._preview_player = false
 				self._spawn_player = false
 				self._can_preview_with_gear = false
@@ -563,6 +572,7 @@ CosmeticsInspectView._start_preview_item = function(self)
 				weapon_preview_loaded = true
 			end
 		end
+		dbg_1 = Managers.ui:active_views()
 
 		local description = item.description and Localize(item.description)
 
