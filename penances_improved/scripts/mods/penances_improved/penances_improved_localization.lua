@@ -1,5 +1,5 @@
 local mod = get_mod("penances_improved")
-mod.version = "2.6.01"
+mod.version = "2.6.02"
 mod:info("Penance View Improved is installed, using version: " .. tostring(mod.version))
 
 local colours = {
@@ -7,6 +7,46 @@ local colours = {
 	subtitle = "226,199,126",
 	text = "169,191,153",
 }
+
+local function lerp(a, b, t)
+	return a + (b - a) * t
+end
+
+mod.gradientText = function(text, startColor, endColor, colorSpaces)
+	local result = ""
+	local length = #text
+	local visibleIndex = 0
+
+	-- Count visible characters
+	for i = 1, length do
+		local char = text:sub(i, i)
+		if colorSpaces or char ~= " " then
+			visibleIndex = visibleIndex + 1
+		end
+	end
+
+	local currentIndex = 0
+
+	for i = 1, length do
+		local char = text:sub(i, i)
+
+		if not colorSpaces and char == " " then
+			result = result .. char
+		else
+			currentIndex = currentIndex + 1
+			local t = (visibleIndex <= 1) and 0 or (currentIndex - 1) / (visibleIndex - 1)
+
+			local r = math.floor(lerp(startColor[1], endColor[1], t))
+			local g = math.floor(lerp(startColor[2], endColor[2], t))
+			local b = math.floor(lerp(startColor[3], endColor[3], t))
+
+			result = result .. string.format("{#color(%d,%d,%d)}%s", r, g, b, char)
+		end
+	end
+
+	result = "{#color(" .. colours.title .. ")} " .. result .. "{#reset()}"
+	return result
+end
 
 mod:add_global_localize_strings({
 	loc_PI_recently_completed = {
@@ -54,15 +94,30 @@ mod._available_aliases = {
 
 local InputUtils = require("scripts/managers/input/input_utils")
 
+local mod_name = {
+	en = "Penance View Improved",
+	ru = "Улучшенный вид Искуплений",
+	["zh-cn"] = "苦修视图改进",
+}
+
 mod.localisation = {
+
 	mod_name = {
-		en = "{#color("
-			.. colours.title
-			.. ")} "
-			.. "{#color(255,0,83)}P{#color(255,10,77)}e{#color(255,20,71)}n{#color(255,30,66)}a{#color(255,40,60)}n{#color(255,50,55)}c{#color(255,60,49)}e{#color(255,70,44)}s {#color(255,80,38)}I{#color(255,90,33)}m{#color(255,100,27)}p{#color(255,109,22)}r{#color(255,120,16)}o{#color(255,130,11)}v{#color(255,140,5)}e{#color(255,150,0)}d{#reset()}",
-		ru = "Улучшенный вид Искуплений",
-		["zh-cn"] = "苦修视图改进",
+		en = mod_name["en"],
+		ru = mod_name["ru"],
+		["zh-cn"] = mod_name["zh-cn"],
 	},
+	mod_name_pizazz = {
+		en = mod.gradientText(mod_name["en"], { 255, 0, 83 }, { 255, 150, 0 }, true),
+		ru = mod.gradientText(mod_name["ru"], { 255, 0, 83 }, { 255, 150, 0 }, true),
+		["zh-cn"] = mod.gradientText(mod_name["zh-cn"], { 255, 0, 83 }, { 255, 150, 0 }, true),
+	},
+	mod_name_boring = {
+		en = mod_name["en"],
+		ru = mod_name["ru"],
+		["zh-cn"] = mod_name["zh-cn"],
+	},
+
 	mod_description = {
 		en = "{#color("
 			.. colours.text
@@ -85,17 +140,7 @@ mod.localisation = {
 		ru = "Penance View Improved - Улучшает экран Искуплений, добавляя «Недавно выполненные» Искупления, более подробную информацию о каждом Искуплении и других Искуплениях, нужных для их выполнения, а также возможность просматривать награды ваших оперативников и многое другое!",
 		["zh-cn"] = "增加「最近完成」的苦修页面；更多苦修和子级苦修细节；在你的特工身上预览奖励物品；以及更多功能！",
 	},
-	mod_name_pizazz = {
-		en = "{#color("
-			.. colours.title
-			.. ")} "
-			.. "{#color(255,0,83)}P{#color(255,10,77)}e{#color(255,20,71)}n{#color(255,30,66)}a{#color(255,40,60)}n{#color(255,50,55)}c{#color(255,60,49)}e{#color(255,70,44)}s {#color(255,80,38)}I{#color(255,90,33)}m{#color(255,100,27)}p{#color(255,109,22)}r{#color(255,120,16)}o{#color(255,130,11)}v{#color(255,140,5)}e{#color(255,150,0)}d{#reset()}",
-		ru = "Улучшенный вид Искуплений",
-		["zh-cn"] = "苦修视图改进",
-	},
-	mod_name_boring = {
-		en = "Penance View Improved",
-	},
+
 	mod_name_pizazz_toggle = {
 		en = "Enable Name Pizazz",
 	},
