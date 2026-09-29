@@ -30,6 +30,7 @@ local ViewElementInventoryWeaponPreview =
 local StoreItemDetailView = require("scripts/ui/views/store_item_detail_view/store_item_detail_view")
 local StoreView = require("scripts/ui/views/store_view/store_view")
 local BaseView = require("scripts/ui/views/base_view")
+local ProfileUtils = require("scripts/utilities/profile_utils")
 
 local cvi = get_mod("commodores_vestures_improved")
 
@@ -1548,7 +1549,7 @@ PenanceOverviewView._cb_view_on_operative = function(self)
 		end
 
 		local profile = is_item_supported_on_played_character and table.clone_instance(player_profile)
-			or ItemUtils.create_mannequin_profile_by_item(item)
+			or ProfileUtils.create_mannequin_profile(item, player_profile)
 
 		context = {
 			use_store_appearance = true,
