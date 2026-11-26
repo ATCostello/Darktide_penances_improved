@@ -1453,8 +1453,6 @@ end
 PenanceOverviewView._toggle_penance_sort_mode = function(self)
 	if not self._penance_sort_mode or self._penance_sort_mode == "default" then
 		self._penance_sort_mode = "recent"
-		--elseif self._penance_sort_mode == "recent" then
-		--self._penance_sort_mode = "recently_completed"
 	else
 		self._penance_sort_mode = "default"
 	end
@@ -2597,8 +2595,7 @@ mod.on_all_mods_loaded = function()
 									default_position[2] - link_difference[2],
 									default_position[3]
 								)
-								-- mod:info("WEAPONCUSTOMIZATION.set_light_positions: " .. tostring(unit_data.unit))
-								if not tostring(unit_data.unit) == "[Unit (deleted)]" then
+								if unit_data.unit and Unit.alive(unit_data.unit) then
 									unit_set_local_position(unit_data.unit, 1, light_position)
 								end
 							end
