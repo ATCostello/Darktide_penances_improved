@@ -2,7 +2,7 @@ local mod = get_mod("penances_improved")
 
 local _get_keybind_list = function()
 	local list = {
-		{ text = "off", value = "off" }
+		{ text = "off", value = "off" },
 	}
 	for _, action in ipairs(mod._available_aliases) do
 		list[#list + 1] = { text = action, value = action }
